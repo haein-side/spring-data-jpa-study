@@ -9,5 +9,7 @@ import java.util.List;
 // <type, id>
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
+    // 도메인에 특화된 검색 조건이 들어가는 경우도 있음
+    // JpaRepository interface에 method 존재 안 할 수도
     List<Member> findByUsername(String username);
 }

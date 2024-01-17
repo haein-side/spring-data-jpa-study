@@ -34,6 +34,11 @@ public class Member {
         }
     }
 
+    public Member(String username, int age) {
+        this.username = username;
+        this.age = age;
+    }
+
     // 더 나은 방식
 //    public void changeMemberUsername(String username) {
 //        this.username = username;
