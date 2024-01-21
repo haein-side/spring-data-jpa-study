@@ -2,17 +2,12 @@ package study.datajpa.repository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import net.bytebuddy.description.type.TypeDefinition;
-import org.assertj.core.api.Assertions;
-import org.assertj.core.api.FactoryBasedNavigableListAssert;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.querydsl.QPageRequest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -32,6 +27,8 @@ class MemberRepositoryTest {
 
     @Autowired MemberRepository memberRepository;
     @Autowired TeamRepository teamRepository;
+
+
     @PersistenceContext
     EntityManager em;
 
@@ -268,9 +265,10 @@ class MemberRepositoryTest {
         //when
         //select Member N+1문제 발생
         //1
-        //List<Member> members = memberRepository.findAll();
+//        List<Member> members = memberRepository.findAll();
+        List<Member> members = memberRepository.findEntityGraphByUsername("member1");
 
-        List<Member> members = memberRepository.findMemberFetchJoin();
+//        List<Member> members = memberRepository.findMemberFetchJoin();
 
         for (Member member : members) {
             System.out.println("member = " + member.getUsername());
@@ -286,4 +284,45 @@ class MemberRepositoryTest {
             System.out.println("member.team = " + member.getTeam().getName());
         }
     }
+
+    @Test
+    public void queryHint() {
+        //given
+        //JPA의 영속성 컨텍스트에 넣어둠
+        Member member1 = new Member("member1", 10);
+        memberRepository.save(member1);
+        //JPA의 1차 캐시에 있는 결과를 db에 동기화함 -> 실제로 db에 insert 쿼리가 날라감!
+        //1차 캐시를 날려버리는 것은 아님
+        em.flush();
+        //1차 캐시를 클리어 해버리면 영속성 컨텍스트가 다 날라감
+        //다음부터 JPA 조회를 하면 영속성 컨텍스트에 1차 캐시가 없으므로 무조건 db에서 조회함
+        em.clear();
+
+        //when
+        Member findMember = memberRepository.findReadOnlyByUsername("member1");
+        findMember.setUsername("member2");
+
+        em.flush(); // dirty checking -> 변경 감지가 동작함! -> db에 업데이트 쿼리 나감!
+    }
+
+    @Test
+    public void lock() {
+        //given
+        //JPA의 영속성 컨텍스트에 넣어둠
+        Member member1 = new Member("member1", 10);
+        memberRepository.save(member1);
+        em.flush();
+        em.clear();
+
+        //when
+        List<Member> result = memberRepository.findLockByUsername("member1");
+
+        em.flush(); // dirty checking -> 변경 감지가 동작함! -> db에 업데이트 쿼리 나감!
+    }
+
+    @Test
+    public void callCustom() {
+        List<Member> result = memberRepository.findMemberCustom();
+    }
+
 }
