@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.querydsl.QPageRequest;
 import org.springframework.test.annotation.Rollback;
@@ -179,20 +180,20 @@ class MemberRepositoryTest {
         memberRepository.save(new Member("member5", 10));
 
         int age = 10;
+        //0번째에서 3개 가져오라고 했음
+        //limit을 하기 위함
         PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
 
         //when
         //반환타입에 따라 totalCount를 날릴 건지 안 날릴 건지 결정됨!
+        //slice는 totalCount 안 날림
+        //반환타입에 따라 totalCount 이런 게 결정됨
+        //totalCount 자체가 데이터가 많아질수록 모든 데이터를 읽어야 하므로 성능이 안 좋음!
+        //따라서 totalCount 쿼리는 분리하는 경우 많음
         Page<Member> page = memberRepository.findByAge(age, pageRequest);
 
         //then
         List<Member> content = page.getContent();
-        long totalElements = page.getTotalElements();//totalCount와 동일한 것
-
-        for (Member member : content) {
-            System.out.println("member = " + member);
-        }
-        System.out.println("totalElements = " + totalElements);
 
         assertThat(content.size()).isEqualTo(3);
         assertThat(page.getTotalElements()).isEqualTo(5); //총 컨텐츠 개수 (total Count)
