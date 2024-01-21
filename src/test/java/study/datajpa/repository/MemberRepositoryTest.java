@@ -1,5 +1,7 @@
 package study.datajpa.repository;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import net.bytebuddy.description.type.TypeDefinition;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.FactoryBasedNavigableListAssert;
@@ -30,6 +32,8 @@ class MemberRepositoryTest {
 
     @Autowired MemberRepository memberRepository;
     @Autowired TeamRepository teamRepository;
+    @PersistenceContext
+    EntityManager em;
 
     @Test
     public void testMember() {
@@ -190,7 +194,12 @@ class MemberRepositoryTest {
         //반환타입에 따라 totalCount 이런 게 결정됨
         //totalCount 자체가 데이터가 많아질수록 모든 데이터를 읽어야 하므로 성능이 안 좋음!
         //따라서 totalCount 쿼리는 분리하는 경우 많음
+        //Member 엔티티 그대로 반환하면 안 됨!!!! -> DTO로 변환해서 리턴해야 함
         Page<Member> page = memberRepository.findByAge(age, pageRequest);
+        
+        //엔티티로 변환
+        //json으로 변환해줌!!
+        Page<MemberDto> toMap = page.map(m -> new MemberDto(m.getId(), m.getUsername(), null));
 
         //then
         List<Member> content = page.getContent();
@@ -201,5 +210,80 @@ class MemberRepositoryTest {
         assertThat(page.getTotalPages()).isEqualTo(2);
         assertThat(page.isFirst()).isTrue(); //첫번째 페이지인지
         assertThat(page.hasNext()).isTrue(); //다음 페이지가 존재하는지
+    }
+
+
+    @Test
+    public void bulkUpdate() {
+        //given
+        //jpql날라가기 전에 기본적으로 db에 데이터 반영함
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 30));
+        memberRepository.save(new Member("member5", 40));
+
+        //when
+        //bulk연산은 영속성 컨텍스트를 거치지 않고 바로 DB로 쿼리 쏴짐
+        int resultCount = memberRepository.bulkAgePlus(20);
+        //영속성 컨텍스트에 혹시나 남아있는 내용들이 db에 반영됨
+//        em.clear(); // 영속성 컨텍스트 안의 데이터를 날리고 깔끔한 상태에서 db에서 값을 가져오게
+
+        //bulk 연산 이후에는 영속성 컨텍스트 날려야 함!
+        //같은 트랜지션 안에서 또다른 로직이 일어나면 큰일남!
+
+        //find()를 통해 영속성 컨텍스트에 있는 값을 가져옴
+        //아직 영속성 컨텍스트에는 반영이 안 되었음!! -> 영속성 컨텍스트를 날려야 함!!
+        List<Member> result = memberRepository.findByUsername("member5");
+        Member member5 = result.get(0);
+        System.out.println("member5 = " + member5);
+
+        //then
+        assertThat(resultCount).isEqualTo(3);
+    }
+
+    @Test
+    public void findMemberLazy() {
+        //given
+        //member1 -> teamA
+        //member2 -> teamB
+
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        //영속성 컨텍스트에 있는 캐시 정보들을 DB에 완전히 반영
+        //이후에 영속성 컨텍스트를 완전히 날려버림
+        em.flush();
+        em.clear();
+
+        //when
+        //select Member N+1문제 발생
+        //1
+        //List<Member> members = memberRepository.findAll();
+
+        List<Member> members = memberRepository.findMemberFetchJoin();
+
+        for (Member member : members) {
+            System.out.println("member = " + member.getUsername());
+            //Team이 영속성컨텍스트에 없으므로 쿼리가 members의 개수만큼 또 나감
+            //N (나온 members만큼 N번 쿼리가 또 돌음!)
+//            select
+//            t1_0.team_id,
+//                    t1_0.name
+//            from
+//            team t1_0
+//            where
+//            t1_0.team_id=?
+            System.out.println("member.team = " + member.getTeam().getName());
+        }
     }
 }

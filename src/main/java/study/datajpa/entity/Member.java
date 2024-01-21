@@ -19,9 +19,6 @@ public class Member {
     @JoinColumn(name = "team_id")
     private Team team;
 
-//    protected Member() {
-//    }
-
     public Member(String username) {
         this.username = username;
     }
