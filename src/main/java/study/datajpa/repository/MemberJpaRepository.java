@@ -17,7 +17,7 @@ public class MemberJpaRepository {
     private EntityManager em;
 
     public Member save(Member member) {
-        em.persist(member);
+        em.persist(member); // SQL DB X - 쓰기 지연 SQL 저장소......
         return member;
     }
 

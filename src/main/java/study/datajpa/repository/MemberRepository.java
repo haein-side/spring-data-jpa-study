@@ -62,7 +62,7 @@ public interface MemberRepository extends JpaRepository<Member, Long>, MemberRep
 
     // 패치 조인
     // Team 객체까지 다 생성해서 Team 엔티티에 있는 필드까지 값이 다 채워짐!
-    @Query("select m from Member m left join fetch m.team")
+    @Query("select m from Member m left join fetch m.team") //JPA상에서 동작하는 쿼리 -> 방언 Mysql -> Mysql 쿼리
     List<Member> findMemberFetchJoin();
 
     // 패치조인을 jpql 쓰지 않고 하는 법

@@ -16,6 +16,8 @@ public class TeamRepository {
 
     public Team save(Team team) {
         em.persist(team);
+//        em.flush(); // db 쿼리 날림
+//        ?.commit();// 트랜잭션 끝내는 역할
         return team;
     }
 
