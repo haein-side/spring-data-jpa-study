@@ -2,12 +2,11 @@ package study.datajpa.repository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -323,6 +322,98 @@ class MemberRepositoryTest {
     @Test
     public void callCustom() {
         List<Member> result = memberRepository.findMemberCustom();
+    }
+
+    @Test
+    public void queryByExample() { //inner join만 가능하고 Outer join이 안됨! 실무에서 잘 못 쓰는 이유.
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m1", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        //when
+        //Probe
+        Member member = new Member("m1");
+
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreCase("age");
+
+        //엔티티 자체가 검색조건이 됨
+        Example<Member> example = Example.of(member, matcher);
+
+        List<Member> result = memberRepository.findAll(example);
+
+        Assertions.assertThat(result.get(0).getUsername()).isEqualTo("m1");
+    }
+
+    @Test
+    public void projections() {
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA); // insert
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m1", 1, teamA);
+
+        em.persist(m1); // insert
+        em.persist(m2); // insert
+
+        System.out.println("=================1==============");
+        //insert into team (name,team_id) values ('teamA',1);
+
+        //insert into member (age,created_by,created_date,last_modified_by,
+        //last_modified_date,team_id,username,member_id) values (?,?,?,?,?,?,?,?)
+
+        //insert into member (age,created_by,created_date,last_modified_by,
+        //last_modified_date,team_id,username,member_id) values (?,?,?,?,?,?,?,?)
+//        List<Member> members = em.createQuery("select m from Member m", Member.class)
+//                .getResultList(); // flush()
+        //JPQL이 실행될 때 flush() 자동 호출 -> 1차 캐시에 저장
+//        select
+//        m1_0.member_id,
+//                m1_0.age,
+//                m1_0.created_by,
+//                m1_0.created_date,
+//                m1_0.last_modified_by,
+//                m1_0.last_modified_date,
+//                m1_0.team_id,
+//                m1_0.username
+//        from
+//        member m1_0
+        // 1차 캐시에 있는 객체보다 < DB에 있는 값이 먼저 바뀔 수 있다.
+        // 서버를 안 거치고도 db 값이 바뀔 수 있으니까
+        //
+        System.out.println("=================2==============");
+
+//        Member m3 = new Member("m3", 3, teamA);
+//        em.persist(m3);
+        Member member2 = em.find(Member.class, "452"); //1차캐시 -> 없으면 바로 select문 -> 1차캐시 저장
+        Member member = em.find(Member.class, "80");
+        System.out.println("member2 = " + member2);
+        System.out.println("member = " + member);
+
+        System.out.println("=================3==============");
+        em.flush(); //쓰기지연SQL저장소 - 삭제, 수정, 변경
+        System.out.println("=================4==============");
+
+
+//        em.flush();
+//        em.clear();
+//
+//        //when
+//        List<UsernameOnly> result = memberRepository.findProjectionsByUsername("m1");
+
+//        for (UsernameOnly usernameOnly : result) {
+//            System.out.println("usernameOnly = " + usernameOnly);
+//        }
     }
 
 }
